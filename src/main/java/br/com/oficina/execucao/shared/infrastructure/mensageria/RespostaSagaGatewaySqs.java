@@ -1,0 +1,81 @@
+package br.com.oficina.execucao.shared.infrastructure.mensageria;
+
+import br.com.oficina.execucao.execucao.gateways.RespostaSagaGateway;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import io.awspring.cloud.sqs.operations.SqsTemplate;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+
+import java.time.Clock;
+import java.time.Instant;
+import java.util.Map;
+import java.util.UUID;
+
+/** Envia as respostas da Saga para a fila de respostas. O correlationId vem do chamador. */
+@Component
+public class RespostaSagaGatewaySqs implements RespostaSagaGateway {
+
+    private static final Logger log = LoggerFactory.getLogger(RespostaSagaGatewaySqs.class);
+
+    private static final String HEADER_CORRELATION_ID = "correlationId";
+
+    private final SqsTemplate sqs;
+    private final ObjectMapper mapper;
+    private final Clock clock;
+    private final String fila;
+    private final TracingMensagens tracing;
+
+    public RespostaSagaGatewaySqs(SqsTemplate sqs, ObjectMapper mapper, Clock clock,
+            @Value("${execucao.filas.respostas}") String fila, TracingMensagens tracing) {
+        this.tracing = tracing;
+        this.sqs = sqs;
+        this.mapper = mapper;
+        this.clock = clock;
+        this.fila = fila;
+    }
+
+    @Override
+    public void execucaoAceita(UUID sagaId, UUID osId, UUID execucaoId, String correlationId) {
+        ObjectNode payload = mapper.createObjectNode().put("execucaoId", execucaoId.toString());
+        enviar("ExecucaoAceita", sagaId, osId, correlationId, payload);
+    }
+
+    @Override
+    public void execucaoRejeitada(UUID sagaId, UUID osId, String motivo, String correlationId) {
+        ObjectNode payload = mapper.createObjectNode().put("motivo", motivo);
+        enviar("ExecucaoRejeitada", sagaId, osId, correlationId, payload);
+    }
+
+    @Override
+    public void execucaoFinalizada(UUID sagaId, UUID osId, UUID execucaoId, Instant em, String correlationId) {
+        ObjectNode payload = mapper.createObjectNode()
+                .put("execucaoId", execucaoId.toString())
+                .put("finalizadaEm", em.toString());
+        enviar("ExecucaoFinalizada", sagaId, osId, correlationId, payload);
+    }
+
+    private void enviar(String tipo, UUID sagaId, UUID osId, String correlacao,
+            ObjectNode payload) {
+        String correlationId = correlacao == null || correlacao.isBlank() ? UUID.randomUUID().toString() : correlacao;
+        UUID messageId = UUID.randomUUID();
+        MensagemSaga mensagem = new MensagemSaga(messageId, sagaId, osId, tipo, correlationId,
+                clock.instant(), payload);
+        String corpo;
+        try {
+            corpo = mapper.writeValueAsString(mensagem);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Falha ao serializar " + tipo, e);
+        }
+        Map<String, String> trace = tracing.cabecalhosSaida();
+        sqs.send(to -> {
+            to.queue(fila).payload(corpo).header("type", tipo);
+            to.header(HEADER_CORRELATION_ID, correlationId);
+            trace.forEach(to::header);
+        });
+        log.info("Resposta enviada type={} sagaId={} messageId={}", tipo, sagaId, messageId);
+    }
+}

@@ -53,7 +53,9 @@ public abstract class LocalStackIT {
         registry.add("spring.cloud.aws.credentials.access-key", LOCALSTACK::getAccessKey);
         registry.add("spring.cloud.aws.credentials.secret-key", LOCALSTACK::getSecretKey);
         registry.add("execucao.dynamodb.tabela", () -> TABELA);
-        registry.add("execucao.filas.comandos", () -> FILA_COMANDOS);
+        // execucao.filas.comandos fica de fora: contextos em cache continuam vivos e consumiriam a fila real.
+        // So o ComandosListenerIT aponta para FILA_COMANDOS; os demais usam o nome padrao do application.yml
+        // (o listener cria essa fila vazia no LocalStack).
         registry.add("execucao.filas.respostas", () -> FILA_RESPOSTAS);
     }
 

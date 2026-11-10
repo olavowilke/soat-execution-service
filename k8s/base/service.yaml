@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: execution-service
+  namespace: execucao
+  labels:
+    app.kubernetes.io/name: execution-service
+    app.kubernetes.io/part-of: oficina
+spec:
+  # NodePort fixo: e o alvo do Target Group do NLB (terraform/, var.node_port).
+  type: NodePort
+  selector:
+    app.kubernetes.io/name: execution-service
+  ports:
+    - port: 8080
+      targetPort: 8080
+      nodePort: 30082
+      name: http
