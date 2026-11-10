@@ -28,7 +28,9 @@ resource "aws_apigatewayv2_integration" "execution_service" {
 locals {
   rotas_publicas = [
     "GET /api/execucao/actuator/health",
+    "GET /api/execucao/swagger-ui.html",
     "GET /api/execucao/swagger-ui/{proxy+}",
+    "GET /api/execucao/v3/api-docs",
     "GET /api/execucao/v3/api-docs/{proxy+}",
   ]
 }

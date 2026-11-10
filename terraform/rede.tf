@@ -11,6 +11,12 @@ data "aws_ssm_parameter" "node_asg_names" {
   name = "${local.ssm_base}/network/node-asg-names"
 }
 
+locals {
+  # O valor do SSM e sensivel por padrao; nonsensitive() deixa usar em for_each.
+  # Nao e segredo: sao nomes de ASG.
+  asg_names = toset(compact([for n in split(",", nonsensitive(data.aws_ssm_parameter.node_asg_names.value)) : trimspace(n)]))
+}
+
 resource "aws_lb_target_group" "execution_service" {
   name        = "${local.prefixo}-execucao"
   port        = var.node_port
@@ -33,6 +39,14 @@ resource "aws_lb_listener" "execution_service" {
   port              = var.listener_port
   protocol          = "TCP"
 
+  # Sem ASG, o for_each abaixo seria vazio e o NLB nao teria alvos.
+  lifecycle {
+    precondition {
+      condition     = length(local.asg_names) > 0
+      error_message = "SSM network/node-asg-names esta vazio."
+    }
+  }
+
   default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.execution_service.arn
@@ -40,7 +54,7 @@ resource "aws_lb_listener" "execution_service" {
 }
 
 resource "aws_autoscaling_attachment" "nodes" {
-  for_each               = toset(split(",", data.aws_ssm_parameter.node_asg_names.value))
+  for_each               = local.asg_names
   autoscaling_group_name = each.value
   lb_target_group_arn    = aws_lb_target_group.execution_service.arn
 }

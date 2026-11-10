@@ -26,12 +26,7 @@ data "aws_iam_policy_document" "permissoes" {
       "dynamodb:GetItem",
       "dynamodb:PutItem",
       "dynamodb:UpdateItem",
-      "dynamodb:DeleteItem",
       "dynamodb:Query",
-      "dynamodb:BatchGetItem",
-      "dynamodb:BatchWriteItem",
-      "dynamodb:TransactWriteItems",
-      "dynamodb:DescribeTable",
     ]
     resources = [
       aws_dynamodb_table.execucoes.arn,
