@@ -57,6 +57,7 @@ public abstract class LocalStackIT {
         // So o ComandosListenerIT aponta para FILA_COMANDOS; os demais usam o nome padrao do application.yml
         // (o listener cria essa fila vazia no LocalStack).
         registry.add("execucao.filas.respostas", () -> FILA_RESPOSTAS);
+        registry.add("execucao.filas.comandos-dlq", () -> FILA_COMANDOS_DLQ);
     }
 
     private static StaticCredentialsProvider credenciais() {
