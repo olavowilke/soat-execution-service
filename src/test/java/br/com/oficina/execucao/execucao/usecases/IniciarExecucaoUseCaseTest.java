@@ -48,7 +48,7 @@ class IniciarExecucaoUseCaseTest {
     void preparar() {
         useCase = new IniciarExecucaoUseCase(execucoes, simulacao, respostas,
                 Clock.fixed(AGORA, ZoneOffset.UTC), 20);
-        cmd = new IniciarExecucaoCommand(SAGA, OS, List.of(new ServicoExecucao("Troca de oleo", 1)), "obs");
+        cmd = new IniciarExecucaoCommand(SAGA, OS, "corr-1", List.of(new ServicoExecucao("Troca de oleo", 1)), "obs");
     }
 
     @Test
@@ -62,7 +62,8 @@ class IniciarExecucaoUseCaseTest {
 
         assertThat(resultado.getEtapa()).isEqualTo(EtapaExecucao.NA_FILA);
         assertThat(resultado.getCriadaEm()).isEqualTo(AGORA);
-        verify(respostas).execucaoAceita(SAGA, OS, resultado.getId());
+        assertThat(resultado.getCorrelationId()).isEqualTo("corr-1");
+        verify(respostas).execucaoAceita(SAGA, OS, resultado.getId(), "corr-1");
     }
 
     @Test
@@ -77,7 +78,7 @@ class IniciarExecucaoUseCaseTest {
         verify(execucoes).salvarNova(salva.capture());
         assertThat(salva.getValue().getEtapa()).isEqualTo(EtapaExecucao.REJEITADA);
         assertThat(salva.getValue().getMotivoRejeicao()).isEqualTo("SIMULACAO");
-        verify(respostas).execucaoRejeitada(SAGA, OS, "SIMULACAO");
+        verify(respostas).execucaoRejeitada(SAGA, OS, "SIMULACAO", "corr-1");
         verify(execucoes, never()).contarAtivas();
     }
 
@@ -93,7 +94,7 @@ class IniciarExecucaoUseCaseTest {
         ArgumentCaptor<Execucao> salva = ArgumentCaptor.forClass(Execucao.class);
         verify(execucoes).salvarNova(salva.capture());
         assertThat(salva.getValue().getEtapa()).isEqualTo(EtapaExecucao.REJEITADA);
-        verify(respostas).execucaoRejeitada(SAGA, OS, "CAPACIDADE");
+        verify(respostas).execucaoRejeitada(SAGA, OS, "CAPACIDADE", "corr-1");
     }
 
     @Test
@@ -104,7 +105,7 @@ class IniciarExecucaoUseCaseTest {
         Execucao resultado = useCase.execute(cmd);
 
         assertThat(resultado).isSameAs(existenteNaFila);
-        verify(respostas).execucaoAceita(SAGA, OS, existenteNaFila.getId());
+        verify(respostas).execucaoAceita(SAGA, OS, existenteNaFila.getId(), "corr-1");
         verify(execucoes, never()).salvarNova(any());
         verify(simulacao, never()).consumir();
     }
@@ -116,7 +117,7 @@ class IniciarExecucaoUseCaseTest {
 
         useCase.execute(cmd);
 
-        verify(respostas).execucaoRejeitada(SAGA, OS, "CAPACIDADE");
+        verify(respostas).execucaoRejeitada(SAGA, OS, "CAPACIDADE", "corr-1");
         verify(execucoes, never()).salvarNova(any());
         verify(simulacao, never()).consumir();
     }
@@ -132,7 +133,7 @@ class IniciarExecucaoUseCaseTest {
         Execucao resultado = useCase.execute(cmd);
 
         assertThat(resultado).isSameAs(vencedora);
-        verify(respostas).execucaoAceita(SAGA, OS, vencedora.getId());
+        verify(respostas).execucaoAceita(SAGA, OS, vencedora.getId(), "corr-1");
         verifyNoMoreInteractions(respostas);
     }
 }

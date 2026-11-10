@@ -137,11 +137,11 @@ class GlobalExceptionHandlerWebTest {
     }
 
     @Test
-    void estadoIlegalRetorna409() throws Exception {
+    void estadoIlegalRetorna500ELogaErro() throws Exception {
         mvc.perform(get("/teste/estado"))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.message").value("transição inválida"));
-        semLogDeErro();
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.message").value("An unexpected error occurred"));
+        assertThat(appender.list).hasSize(1);
     }
 
     @Test

@@ -22,11 +22,16 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
-    void estadoIlegalRetorna409() {
-        var resposta = handler.handleIllegalState(new IllegalStateException("transição inválida"));
+    void conflitosDeDominioRetornam409() {
+        var transicao = handler.handleConflito(new br.com.oficina.execucao.execucao.entities.TransicaoEtapaInvalidaException(
+                br.com.oficina.execucao.execucao.entities.EtapaExecucao.NA_FILA,
+                br.com.oficina.execucao.execucao.entities.EtapaExecucao.CONCLUIDA));
+        var concorrente = handler.handleConflito(
+                new br.com.oficina.execucao.execucao.gateways.ExecucaoAlteradaConcorrentementeException(
+                        java.util.UUID.randomUUID(), null));
 
-        assertThat(resposta.getStatusCode().value()).isEqualTo(409);
-        assertThat(resposta.getBody().message()).isEqualTo("transição inválida");
+        assertThat(transicao.getStatusCode().value()).isEqualTo(409);
+        assertThat(concorrente.getStatusCode().value()).isEqualTo(409);
     }
 
     @Test

@@ -35,6 +35,7 @@ class AvancarEtapaUseCaseTest {
 
     private static final UUID SAGA = UUID.randomUUID();
     private static final UUID OS = UUID.randomUUID();
+    private static final String CORR = "corr-do-comando";
     private static final Instant ANTES = Instant.parse("2026-11-09T11:00:00Z");
     private static final Instant AGORA = Instant.parse("2026-11-09T12:00:00Z");
 
@@ -52,7 +53,7 @@ class AvancarEtapaUseCaseTest {
 
     private Execucao em(EtapaExecucao etapa) {
         return Execucao.reconstituir(UUID.randomUUID(), OS, SAGA, etapa,
-                List.of(new ServicoExecucao("Troca de oleo", 1)), "obs", null,
+                List.of(new ServicoExecucao("Troca de oleo", 1)), "obs", null, CORR,
                 List.of(new HistoricoEtapa(etapa, ANTES)), ANTES, ANTES, 3L);
     }
 
@@ -66,7 +67,7 @@ class AvancarEtapaUseCaseTest {
         assertThat(resultado.getEtapa()).isEqualTo(EtapaExecucao.EM_REPARO);
         assertThat(resultado.getAtualizadaEm()).isEqualTo(AGORA);
         verify(execucoes).atualizar(execucao);
-        verify(respostas, never()).execucaoFinalizada(any(), any(), any(), any());
+        verify(respostas, never()).execucaoFinalizada(any(), any(), any(), any(), any());
     }
 
     @Test
@@ -78,7 +79,7 @@ class AvancarEtapaUseCaseTest {
 
         var ordem = inOrder(execucoes, respostas);
         ordem.verify(execucoes).atualizar(execucao);
-        ordem.verify(respostas).execucaoFinalizada(SAGA, OS, execucao.getId(), AGORA);
+        ordem.verify(respostas).execucaoFinalizada(SAGA, OS, execucao.getId(), AGORA, CORR);
     }
 
     @Test
@@ -89,8 +90,33 @@ class AvancarEtapaUseCaseTest {
         Execucao resultado = useCase.execute(OS, EtapaExecucao.CONCLUIDA);
 
         assertThat(resultado).isSameAs(concluida);
-        verify(respostas).execucaoFinalizada(SAGA, OS, concluida.getId(), ANTES);
+        verify(respostas).execucaoFinalizada(SAGA, OS, concluida.getId(), ANTES, CORR);
         verify(execucoes, never()).atualizar(any());
+    }
+
+    @Test
+    void finalizadaCarregaOCorrelationIdOriginalDoComando() {
+        Execucao execucao = em(EtapaExecucao.EM_TESTE);
+        when(execucoes.buscarPorOsId(OS)).thenReturn(Optional.of(execucao));
+        org.mockito.ArgumentCaptor<String> captor = org.mockito.ArgumentCaptor.forClass(String.class);
+
+        useCase.execute(OS, EtapaExecucao.CONCLUIDA);
+
+        verify(respostas).execucaoFinalizada(any(), any(), any(), any(), captor.capture());
+        assertThat(captor.getValue()).isEqualTo(CORR);
+    }
+
+    @Test
+    void semCorrelationIdGuardadoGeraUmNovo() {
+        Execucao antiga = Execucao.reconstituir(UUID.randomUUID(), OS, SAGA, EtapaExecucao.EM_TESTE,
+                List.of(), null, null, List.of(new HistoricoEtapa(EtapaExecucao.EM_TESTE, ANTES)), ANTES, ANTES, 1L);
+        when(execucoes.buscarPorOsId(OS)).thenReturn(Optional.of(antiga));
+        org.mockito.ArgumentCaptor<String> captor = org.mockito.ArgumentCaptor.forClass(String.class);
+
+        useCase.execute(OS, EtapaExecucao.CONCLUIDA);
+
+        verify(respostas).execucaoFinalizada(any(), any(), any(), any(), captor.capture());
+        assertThat(UUID.fromString(captor.getValue())).isNotNull();
     }
 
     @Test
@@ -109,7 +135,7 @@ class AvancarEtapaUseCaseTest {
         assertThatThrownBy(() -> useCase.execute(OS, EtapaExecucao.CONCLUIDA))
                 .isInstanceOf(TransicaoEtapaInvalidaException.class);
         verify(execucoes, never()).atualizar(any());
-        verify(respostas, never()).execucaoFinalizada(any(), any(), any(), any());
+        verify(respostas, never()).execucaoFinalizada(any(), any(), any(), any(), any());
     }
 
     @Test
@@ -128,7 +154,7 @@ class AvancarEtapaUseCaseTest {
 
         assertThatThrownBy(() -> useCase.execute(OS, EtapaExecucao.CONCLUIDA))
                 .isInstanceOf(ExecucaoAlteradaConcorrentementeException.class);
-        verify(respostas, never()).execucaoFinalizada(any(), any(), any(), any());
+        verify(respostas, never()).execucaoFinalizada(any(), any(), any(), any(), any());
     }
 
     @Test
@@ -136,7 +162,7 @@ class AvancarEtapaUseCaseTest {
         Execucao execucao = em(EtapaExecucao.EM_TESTE);
         when(execucoes.buscarPorOsId(OS)).thenReturn(Optional.of(execucao));
         doThrow(new IllegalStateException("sqs fora")).when(respostas)
-                .execucaoFinalizada(any(), any(), any(), any());
+                .execucaoFinalizada(any(), any(), any(), any(), any());
 
         assertThatThrownBy(() -> useCase.execute(OS, EtapaExecucao.CONCLUIDA))
                 .isInstanceOf(IllegalStateException.class);

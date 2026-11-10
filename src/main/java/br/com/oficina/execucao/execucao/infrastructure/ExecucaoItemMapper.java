@@ -41,6 +41,9 @@ final class ExecucaoItemMapper {
                         DESCRICAO, s(sv.descricao()),
                         QUANTIDADE, AttributeValue.fromN(String.valueOf(sv.quantidade())))))
                 .toList()));
+        if (e.getCorrelationId() != null) {
+            item.put(CORRELATION_ID, s(e.getCorrelationId()));
+        }
         if (e.getObservacoes() != null) {
             item.put(OBSERVACOES, s(e.getObservacoes()));
         }
@@ -76,6 +79,7 @@ final class ExecucaoItemMapper {
                 servicos,
                 texto(item, OBSERVACOES),
                 texto(item, MOTIVO_REJEICAO),
+                texto(item, CORRELATION_ID),
                 historico,
                 Instant.parse(item.get(CRIADA_EM).s()),
                 Instant.parse(item.get(ATUALIZADA_EM).s()),

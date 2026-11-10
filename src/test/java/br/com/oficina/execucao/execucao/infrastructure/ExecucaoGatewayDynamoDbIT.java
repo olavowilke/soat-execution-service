@@ -44,7 +44,7 @@ class ExecucaoGatewayDynamoDbIT extends LocalStackIT {
     }
 
     private static Execucao nova(Instant criadaEm) {
-        return Execucao.nova(UUID.randomUUID(), UUID.randomUUID(),
+        return Execucao.nova(UUID.randomUUID(), UUID.randomUUID(), "corr-gw",
                 List.of(new ServicoExecucao("Troca de oleo", 2)), "obs", criadaEm);
     }
 
@@ -77,6 +77,18 @@ class ExecucaoGatewayDynamoDbIT extends LocalStackIT {
         Execucao lida = gateway.buscarPorOsId(exec.getOsId()).orElseThrow();
 
         assertThat(lida).usingRecursiveComparison().isEqualTo(exec);
+    }
+
+    @Test
+    void itemAntigoSemCorrelationIdVoltaComNulo() {
+        Execucao exec = nova(BASE);
+        gateway.salvarNova(exec);
+        dynamo.updateItem(b -> b.tableName(tabela)
+                .key(Map.of("pk", software.amazon.awssdk.services.dynamodb.model.AttributeValue.fromS("EXEC#" + exec.getOsId()),
+                        "sk", software.amazon.awssdk.services.dynamodb.model.AttributeValue.fromS("META")))
+                .updateExpression("REMOVE correlationId"));
+
+        assertThat(gateway.buscarPorOsId(exec.getOsId()).orElseThrow().getCorrelationId()).isNull();
     }
 
     @Test

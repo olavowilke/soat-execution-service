@@ -5,7 +5,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.awspring.cloud.sqs.operations.SqsTemplate;
-import org.slf4j.MDC;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -14,11 +15,13 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 
-/** Envia as respostas da Saga para a fila de respostas. O correlationId vem do MDC (o listener o define). */
+/** Envia as respostas da Saga para a fila de respostas. O correlationId vem do chamador. */
 @Component
 public class RespostaSagaGatewaySqs implements RespostaSagaGateway {
 
-    private static final String MDC_CORRELATION_ID = "correlationId";
+    private static final Logger log = LoggerFactory.getLogger(RespostaSagaGatewaySqs.class);
+
+    private static final String HEADER_CORRELATION_ID = "correlationId";
 
     private final SqsTemplate sqs;
     private final ObjectMapper mapper;
@@ -36,29 +39,30 @@ public class RespostaSagaGatewaySqs implements RespostaSagaGateway {
     }
 
     @Override
-    public void execucaoAceita(UUID sagaId, UUID osId, UUID execucaoId) {
+    public void execucaoAceita(UUID sagaId, UUID osId, UUID execucaoId, String correlationId) {
         ObjectNode payload = mapper.createObjectNode().put("execucaoId", execucaoId.toString());
-        enviar("ExecucaoAceita", sagaId, osId, payload);
+        enviar("ExecucaoAceita", sagaId, osId, correlationId, payload);
     }
 
     @Override
-    public void execucaoRejeitada(UUID sagaId, UUID osId, String motivo) {
+    public void execucaoRejeitada(UUID sagaId, UUID osId, String motivo, String correlationId) {
         ObjectNode payload = mapper.createObjectNode().put("motivo", motivo);
-        enviar("ExecucaoRejeitada", sagaId, osId, payload);
+        enviar("ExecucaoRejeitada", sagaId, osId, correlationId, payload);
     }
 
     @Override
-    public void execucaoFinalizada(UUID sagaId, UUID osId, UUID execucaoId, Instant em) {
+    public void execucaoFinalizada(UUID sagaId, UUID osId, UUID execucaoId, Instant em, String correlationId) {
         ObjectNode payload = mapper.createObjectNode()
                 .put("execucaoId", execucaoId.toString())
                 .put("finalizadaEm", em.toString());
-        enviar("ExecucaoFinalizada", sagaId, osId, payload);
+        enviar("ExecucaoFinalizada", sagaId, osId, correlationId, payload);
     }
 
-    private void enviar(String tipo, UUID sagaId, UUID osId, ObjectNode payload) {
-        String doMdc = MDC.get(MDC_CORRELATION_ID);
-        String correlationId = doMdc == null || doMdc.isBlank() ? UUID.randomUUID().toString() : doMdc;
-        MensagemSaga mensagem = new MensagemSaga(UUID.randomUUID(), sagaId, osId, tipo, correlationId,
+    private void enviar(String tipo, UUID sagaId, UUID osId, String correlacao,
+            ObjectNode payload) {
+        String correlationId = correlacao == null || correlacao.isBlank() ? UUID.randomUUID().toString() : correlacao;
+        UUID messageId = UUID.randomUUID();
+        MensagemSaga mensagem = new MensagemSaga(messageId, sagaId, osId, tipo, correlationId,
                 clock.instant(), payload);
         String corpo;
         try {
@@ -69,8 +73,9 @@ public class RespostaSagaGatewaySqs implements RespostaSagaGateway {
         Map<String, String> trace = tracing.cabecalhosSaida();
         sqs.send(to -> {
             to.queue(fila).payload(corpo).header("type", tipo);
-            to.header(MDC_CORRELATION_ID, correlationId);
+            to.header(HEADER_CORRELATION_ID, correlationId);
             trace.forEach(to::header);
         });
+        log.info("Resposta enviada type={} sagaId={} messageId={}", tipo, sagaId, messageId);
     }
 }

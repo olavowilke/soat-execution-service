@@ -12,4 +12,4 @@ resources:
   - hpa.yaml
   - pdb.yaml
 
-# Sem `images:` de proposito: o CD define a imagem com `kubectl set image`.
+# Sem `images:` de proposito: o CD define a imagem com `kustomize edit set image`.

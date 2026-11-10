@@ -21,6 +21,7 @@ final class ExecucaoItem {
     static final String ID = "id";
     static final String OS_ID = "osId";
     static final String SAGA_ID = "sagaId";
+    static final String CORRELATION_ID = "correlationId";
     static final String ETAPA = "etapa";
     static final String SERVICOS = "servicos";
     static final String OBSERVACOES = "observacoes";

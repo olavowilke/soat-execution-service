@@ -52,19 +52,20 @@ public class IniciarExecucaoUseCase {
 
     private Execucao criar(IniciarExecucaoCommand cmd, Instant agora) {
         if (simulacao.consumir()) {
-            return Execucao.rejeitada(cmd.osId(), cmd.sagaId(), MOTIVO_SIMULACAO, agora);
+            return Execucao.rejeitada(cmd.osId(), cmd.sagaId(), cmd.correlationId(), MOTIVO_SIMULACAO, agora);
         }
         if (execucoes.contarAtivas() >= capacidadeMaxima) {
-            return Execucao.rejeitada(cmd.osId(), cmd.sagaId(), MOTIVO_CAPACIDADE, agora);
+            return Execucao.rejeitada(cmd.osId(), cmd.sagaId(), cmd.correlationId(), MOTIVO_CAPACIDADE, agora);
         }
-        return Execucao.nova(cmd.osId(), cmd.sagaId(), cmd.servicos(), cmd.observacoes(), agora);
+        return Execucao.nova(cmd.osId(), cmd.sagaId(), cmd.correlationId(), cmd.servicos(), cmd.observacoes(), agora);
     }
 
     private void responder(IniciarExecucaoCommand cmd, Execucao execucao) {
         if (execucao.getEtapa() == EtapaExecucao.REJEITADA) {
-            respostas.execucaoRejeitada(cmd.sagaId(), cmd.osId(), execucao.getMotivoRejeicao());
+            respostas.execucaoRejeitada(cmd.sagaId(), cmd.osId(), execucao.getMotivoRejeicao(),
+                    cmd.correlationId());
         } else {
-            respostas.execucaoAceita(cmd.sagaId(), cmd.osId(), execucao.getId());
+            respostas.execucaoAceita(cmd.sagaId(), cmd.osId(), execucao.getId(), cmd.correlationId());
         }
     }
 }

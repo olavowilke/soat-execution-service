@@ -44,7 +44,10 @@ public class AvancarEtapaUseCase {
     }
 
     private void publicarFinalizada(Execucao execucao) {
+        String correlationId = execucao.getCorrelationId() == null
+                ? UUID.randomUUID().toString()
+                : execucao.getCorrelationId();
         respostas.execucaoFinalizada(execucao.getSagaId(), execucao.getOsId(), execucao.getId(),
-                execucao.getAtualizadaEm());
+                execucao.getAtualizadaEm(), correlationId);
     }
 }

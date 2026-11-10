@@ -94,11 +94,19 @@ class ExecucaoTest {
     }
 
     @Test
-    void novaSemServicosLancaIllegalArgument() {
-        assertThatThrownBy(() -> Execucao.nova(OS, SAGA, List.of(), null, T0))
-                .isInstanceOf(IllegalArgumentException.class);
+    void novaRejeitaServicosNulosEAceitaListaVazia() {
         assertThatThrownBy(() -> Execucao.nova(OS, SAGA, null, null, T0))
                 .isInstanceOf(IllegalArgumentException.class);
+        var semServicos = Execucao.nova(OS, SAGA, "corr", List.of(), null, T0);
+        assertThat(semServicos.getEtapa()).isEqualTo(EtapaExecucao.NA_FILA);
+        assertThat(semServicos.getServicos()).isEmpty();
+    }
+
+    @Test
+    void guardaCorrelationIdDoComando() {
+        assertThat(Execucao.nova(OS, SAGA, "corr-1", SERVICOS, null, T0).getCorrelationId()).isEqualTo("corr-1");
+        assertThat(Execucao.rejeitada(OS, SAGA, "corr-2", "x", T0).getCorrelationId()).isEqualTo("corr-2");
+        assertThat(Execucao.nova(OS, SAGA, SERVICOS, null, T0).getCorrelationId()).isNull();
     }
 
     @Test

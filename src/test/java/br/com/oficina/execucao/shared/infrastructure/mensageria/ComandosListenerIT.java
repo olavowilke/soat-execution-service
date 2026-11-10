@@ -109,6 +109,18 @@ class ComandosListenerIT extends LocalStackIT {
 
 
     @Test
+    void comandoSemServicosGeraExecucaoAceita() {
+        UUID saga = UUID.randomUUID();
+        UUID os = UUID.randomUUID();
+
+        enviar(comando(saga, os, "IniciarExecucao", "corr-" + saga, List.of()));
+
+        Message resposta = aguardarRespostas(os, 1).get(0);
+        assertThat(resposta.messageAttributes().get("type").stringValue()).isEqualTo("ExecucaoAceita");
+        assertThat(execucoes.buscarPorOsId(os).orElseThrow().getServicos()).isEmpty();
+    }
+
+    @Test
     void tipoDesconhecidoNaoGeraResposta() {
         UUID saga = UUID.randomUUID();
         UUID os = UUID.randomUUID();
@@ -126,13 +138,13 @@ class ComandosListenerIT extends LocalStackIT {
         UUID saga = UUID.randomUUID();
         UUID os = UUID.randomUUID();
         doThrow(new IllegalStateException("falha simulada")).doCallRealMethod()
-                .when(respostasSpy).execucaoAceita(any(), any(), any());
+                .when(respostasSpy).execucaoAceita(any(), any(), any(), any());
 
         enviar(comando(saga, os, "IniciarExecucao"));
 
         Message resposta = aguardarRespostas(os, 1).get(0);
         assertThat(resposta.messageAttributes().get("type").stringValue()).isEqualTo("ExecucaoAceita");
-        verify(respostasSpy, times(2)).execucaoAceita(any(), any(), any());
+        verify(respostasSpy, times(2)).execucaoAceita(any(), any(), any(), any());
     }
 
     @Test
@@ -191,6 +203,11 @@ class ComandosListenerIT extends LocalStackIT {
     }
 
     private String comando(UUID saga, UUID os, String tipo, String correlationId) {
+        return comando(saga, os, tipo, correlationId,
+                List.of(Map.of("descricao", "Troca de oleo", "quantidade", 1)));
+    }
+
+    private String comando(UUID saga, UUID os, String tipo, String correlationId, List<Map<String, Object>> servicos) {
         Map<String, Object> envelope = new HashMap<>();
         envelope.put("messageId", UUID.randomUUID());
         envelope.put("sagaId", saga);
@@ -201,7 +218,7 @@ class ComandosListenerIT extends LocalStackIT {
         }
         envelope.put("occurredAt", Instant.now().toString());
         envelope.put("payload", Map.of(
-                "servicos", List.of(Map.of("descricao", "Troca de oleo", "quantidade", 1)),
+                "servicos", servicos,
                 "observacoes", "obs"));
         try {
             return mapper.writeValueAsString(envelope);

@@ -47,7 +47,8 @@ public class ComandosListener {
         MensagemSaga mensagem = ler(corpo);
         try {
             boolean semCorrelationId = mensagem.correlationId() == null || mensagem.correlationId().isBlank();
-            MDC.put("correlationId", semCorrelationId ? UUID.randomUUID().toString() : mensagem.correlationId());
+            String correlationId = semCorrelationId ? UUID.randomUUID().toString() : mensagem.correlationId();
+            MDC.put("correlationId", correlationId);
             MDC.put("sagaId", String.valueOf(mensagem.sagaId()));
             if (newrelic != null) {
                 tracing.aceitar(Map.of(TracingMensagens.ATRIBUTO_NEWRELIC, newrelic));
@@ -56,7 +57,7 @@ public class ComandosListener {
                 log.error("Tipo de mensagem desconhecido {}, messageId={}", mensagem.type(), mensagem.messageId());
                 throw new IllegalArgumentException("Tipo de mensagem desconhecido: " + mensagem.type());
             }
-            iniciarExecucao.execute(paraComando(mensagem));
+            iniciarExecucao.execute(paraComando(mensagem, correlationId));
         } finally {
             MDC.remove("correlationId");
             MDC.remove("sagaId");
@@ -83,14 +84,14 @@ public class ComandosListener {
         return corpo == null ? null : corpo.substring(0, Math.min(corpo.length(), 200));
     }
 
-    private IniciarExecucaoCommand paraComando(MensagemSaga mensagem) {
+    private IniciarExecucaoCommand paraComando(MensagemSaga mensagem, String correlationId) {
         JsonNode payload = mensagem.payload();
         List<ServicoExecucao> servicos = new ArrayList<>();
         for (JsonNode s : payload.path("servicos")) {
             servicos.add(new ServicoExecucao(s.path("descricao").asText(null), s.path("quantidade").asInt()));
         }
         JsonNode obs = payload.path("observacoes");
-        return new IniciarExecucaoCommand(mensagem.sagaId(), mensagem.osId(), servicos,
+        return new IniciarExecucaoCommand(mensagem.sagaId(), mensagem.osId(), correlationId, servicos,
                 obs.isNull() || obs.isMissingNode() ? null : obs.asText());
     }
 }

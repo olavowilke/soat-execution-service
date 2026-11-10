@@ -29,7 +29,7 @@ spec:
       serviceAccountName: execution-service
       containers:
         - name: execution-service
-          # Placeholder: o CD troca a imagem com `kubectl set image` (sha-<sha>).
+          # Placeholder: o CD troca a imagem com `kustomize edit set image` (sha-<sha>).
           image: execution-service:latest
           imagePullPolicy: IfNotPresent
           ports:

@@ -5,9 +5,9 @@ import java.util.UUID;
 
 public interface RespostaSagaGateway {
 
-    void execucaoAceita(UUID sagaId, UUID osId, UUID execucaoId);
+    void execucaoAceita(UUID sagaId, UUID osId, UUID execucaoId, String correlationId);
 
-    void execucaoRejeitada(UUID sagaId, UUID osId, String motivo);
+    void execucaoRejeitada(UUID sagaId, UUID osId, String motivo, String correlationId);
 
-    void execucaoFinalizada(UUID sagaId, UUID osId, UUID execucaoId, Instant em);
+    void execucaoFinalizada(UUID sagaId, UUID osId, UUID execucaoId, Instant em, String correlationId);
 }

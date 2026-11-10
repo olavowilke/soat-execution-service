@@ -15,14 +15,15 @@ public class Execucao {
     private final List<ServicoExecucao> servicos;
     private final String observacoes;
     private final String motivoRejeicao;
+    private final String correlationId;
     private final List<HistoricoEtapa> historico;
     private final Instant criadaEm;
     private Instant atualizadaEm;
     private long versao;
 
     private Execucao(UUID id, UUID osId, UUID sagaId, EtapaExecucao etapa, List<ServicoExecucao> servicos,
-            String observacoes, String motivoRejeicao, List<HistoricoEtapa> historico, Instant criadaEm,
-            Instant atualizadaEm) {
+            String observacoes, String motivoRejeicao, String correlationId, List<HistoricoEtapa> historico,
+            Instant criadaEm, Instant atualizadaEm) {
         this.id = id;
         this.osId = osId;
         this.sagaId = sagaId;
@@ -30,6 +31,7 @@ public class Execucao {
         this.servicos = new ArrayList<>(servicos);
         this.observacoes = observacoes;
         this.motivoRejeicao = motivoRejeicao;
+        this.correlationId = correlationId;
         this.historico = new ArrayList<>(historico);
         this.criadaEm = criadaEm;
         this.atualizadaEm = atualizadaEm;
@@ -37,21 +39,31 @@ public class Execucao {
 
     public static Execucao nova(UUID osId, UUID sagaId, List<ServicoExecucao> servicos, String observacoes,
             Instant agora) {
+        return nova(osId, sagaId, null, servicos, observacoes, agora);
+    }
+
+    /** Lista vazia é válida: uma OS só de peças não tem serviços para executar. */
+    public static Execucao nova(UUID osId, UUID sagaId, String correlationId, List<ServicoExecucao> servicos,
+            String observacoes, Instant agora) {
         exigirIds(osId, sagaId);
-        if (servicos == null || servicos.isEmpty()) {
-            throw new IllegalArgumentException("servicos nao pode ser vazio");
+        if (servicos == null) {
+            throw new IllegalArgumentException("servicos nao pode ser nulo");
         }
         return new Execucao(UUID.randomUUID(), osId, sagaId, EtapaExecucao.NA_FILA, servicos, observacoes, null,
-                List.of(new HistoricoEtapa(EtapaExecucao.NA_FILA, agora)), agora, agora);
+                correlationId, List.of(new HistoricoEtapa(EtapaExecucao.NA_FILA, agora)), agora, agora);
     }
 
     public static Execucao rejeitada(UUID osId, UUID sagaId, String motivo, Instant agora) {
+        return rejeitada(osId, sagaId, null, motivo, agora);
+    }
+
+    public static Execucao rejeitada(UUID osId, UUID sagaId, String correlationId, String motivo, Instant agora) {
         exigirIds(osId, sagaId);
         if (motivo == null || motivo.isBlank()) {
             throw new IllegalArgumentException("motivo da rejeicao e obrigatorio");
         }
         return new Execucao(UUID.randomUUID(), osId, sagaId, EtapaExecucao.REJEITADA, List.of(), null, motivo,
-                List.of(new HistoricoEtapa(EtapaExecucao.REJEITADA, agora)), agora, agora);
+                correlationId, List.of(new HistoricoEtapa(EtapaExecucao.REJEITADA, agora)), agora, agora);
     }
 
     public static Execucao reconstituir(UUID id, UUID osId, UUID sagaId, EtapaExecucao etapa,
@@ -64,8 +76,15 @@ public class Execucao {
     public static Execucao reconstituir(UUID id, UUID osId, UUID sagaId, EtapaExecucao etapa,
             List<ServicoExecucao> servicos, String observacoes, String motivoRejeicao,
             List<HistoricoEtapa> historico, Instant criadaEm, Instant atualizadaEm, long versao) {
-        Execucao e = new Execucao(id, osId, sagaId, etapa, servicos, observacoes, motivoRejeicao, historico,
-                criadaEm, atualizadaEm);
+        return reconstituir(id, osId, sagaId, etapa, servicos, observacoes, motivoRejeicao, null, historico,
+                criadaEm, atualizadaEm, versao);
+    }
+
+    public static Execucao reconstituir(UUID id, UUID osId, UUID sagaId, EtapaExecucao etapa,
+            List<ServicoExecucao> servicos, String observacoes, String motivoRejeicao, String correlationId,
+            List<HistoricoEtapa> historico, Instant criadaEm, Instant atualizadaEm, long versao) {
+        Execucao e = new Execucao(id, osId, sagaId, etapa, servicos, observacoes, motivoRejeicao, correlationId,
+                historico, criadaEm, atualizadaEm);
         e.versao = versao;
         return e;
     }
@@ -108,6 +127,11 @@ public class Execucao {
 
     public UUID getSagaId() {
         return sagaId;
+    }
+
+    /** CorrelationId do comando da Saga; nulo em itens antigos. */
+    public String getCorrelationId() {
+        return correlationId;
     }
 
     public EtapaExecucao getEtapa() {
