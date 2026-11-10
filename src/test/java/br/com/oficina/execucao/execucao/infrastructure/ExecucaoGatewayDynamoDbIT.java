@@ -3,6 +3,7 @@ package br.com.oficina.execucao.execucao.infrastructure;
 import br.com.oficina.execucao.execucao.entities.EtapaExecucao;
 import br.com.oficina.execucao.execucao.entities.Execucao;
 import br.com.oficina.execucao.execucao.entities.ServicoExecucao;
+import br.com.oficina.execucao.execucao.gateways.ExecucaoAlteradaConcorrentementeException;
 import br.com.oficina.execucao.execucao.gateways.ExecucaoGateway;
 import br.com.oficina.execucao.shared.LocalStackIT;
 import org.junit.jupiter.api.BeforeEach;
@@ -20,6 +21,7 @@ import java.util.Map;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @ActiveProfiles("test")
@@ -131,6 +133,48 @@ class ExecucaoGatewayDynamoDbIT extends LocalStackIT {
 
         assertThat(gateway.contarAtivas()).isEqualTo(12);
         assertThat(gateway.listarAtivas()).hasSize(12);
+    }
+
+    @Test
+    void atualizarItemInexistenteLanca() {
+        Execucao exec = nova(BASE);
+        exec.avancarPara(EtapaExecucao.EM_REPARO, BASE.plusSeconds(1));
+
+        assertThatThrownBy(() -> gateway.atualizar(exec))
+                .isInstanceOf(ExecucaoAlteradaConcorrentementeException.class);
+        assertThat(gateway.buscarPorOsId(exec.getOsId())).isEmpty();
+    }
+
+    @Test
+    void duasAtualizacoesComLeituraVelhaSegundaLancaEPrimeiraSobrevive() {
+        Execucao original = nova(BASE);
+        gateway.salvarNova(original);
+        Execucao leitorA = gateway.buscarPorOsId(original.getOsId()).orElseThrow();
+        Execucao leitorB = gateway.buscarPorOsId(original.getOsId()).orElseThrow();
+        leitorA.avancarPara(EtapaExecucao.EM_REPARO, BASE.plusSeconds(10));
+        leitorB.avancarPara(EtapaExecucao.EM_REPARO, BASE.plusSeconds(20));
+
+        gateway.atualizar(leitorA);
+
+        assertThatThrownBy(() -> gateway.atualizar(leitorB))
+                .isInstanceOf(ExecucaoAlteradaConcorrentementeException.class);
+        Execucao lida = gateway.buscarPorOsId(original.getOsId()).orElseThrow();
+        assertThat(lida.getAtualizadaEm()).isEqualTo(BASE.plusSeconds(10));
+        assertThat(lida.getHistorico()).hasSize(2);
+    }
+
+    @Test
+    void atualizacoesSequenciaisNoMesmoObjetoFuncionam() {
+        Execucao exec = nova(BASE);
+        gateway.salvarNova(exec);
+        exec.avancarPara(EtapaExecucao.EM_REPARO, BASE.plusSeconds(1));
+        gateway.atualizar(exec);
+        exec.avancarPara(EtapaExecucao.EM_TESTE, BASE.plusSeconds(2));
+        gateway.atualizar(exec);
+
+        Execucao lida = gateway.buscarPorOsId(exec.getOsId()).orElseThrow();
+        assertThat(lida.getEtapa()).isEqualTo(EtapaExecucao.EM_TESTE);
+        assertThat(lida.getVersao()).isEqualTo(2);
     }
 
     @Test

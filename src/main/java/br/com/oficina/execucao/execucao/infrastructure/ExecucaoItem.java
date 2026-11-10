@@ -31,6 +31,7 @@ final class ExecucaoItem {
     static final String DESCRICAO = "descricao";
     static final String QUANTIDADE = "quantidade";
     static final String EM = "em";
+    static final String VERSAO = "versao";
 
     private ExecucaoItem() {
     }

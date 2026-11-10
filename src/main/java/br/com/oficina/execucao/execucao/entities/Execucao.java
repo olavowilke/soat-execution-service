@@ -18,6 +18,7 @@ public class Execucao {
     private final List<HistoricoEtapa> historico;
     private final Instant criadaEm;
     private Instant atualizadaEm;
+    private long versao;
 
     private Execucao(UUID id, UUID osId, UUID sagaId, EtapaExecucao etapa, List<ServicoExecucao> servicos,
             String observacoes, String motivoRejeicao, List<HistoricoEtapa> historico, Instant criadaEm,
@@ -56,8 +57,17 @@ public class Execucao {
     public static Execucao reconstituir(UUID id, UUID osId, UUID sagaId, EtapaExecucao etapa,
             List<ServicoExecucao> servicos, String observacoes, String motivoRejeicao,
             List<HistoricoEtapa> historico, Instant criadaEm, Instant atualizadaEm) {
-        return new Execucao(id, osId, sagaId, etapa, servicos, observacoes, motivoRejeicao, historico, criadaEm,
-                atualizadaEm);
+        return reconstituir(id, osId, sagaId, etapa, servicos, observacoes, motivoRejeicao, historico, criadaEm,
+                atualizadaEm, 0L);
+    }
+
+    public static Execucao reconstituir(UUID id, UUID osId, UUID sagaId, EtapaExecucao etapa,
+            List<ServicoExecucao> servicos, String observacoes, String motivoRejeicao,
+            List<HistoricoEtapa> historico, Instant criadaEm, Instant atualizadaEm, long versao) {
+        Execucao e = new Execucao(id, osId, sagaId, etapa, servicos, observacoes, motivoRejeicao, historico,
+                criadaEm, atualizadaEm);
+        e.versao = versao;
+        return e;
     }
 
     private static void exigirIds(UUID osId, UUID sagaId) {
@@ -76,6 +86,16 @@ public class Execucao {
         this.etapa = destino;
         this.historico.add(new HistoricoEtapa(destino, agora));
         this.atualizadaEm = agora;
+    }
+
+    /** Versão lida da persistência; usada para travamento otimista. */
+    public long getVersao() {
+        return versao;
+    }
+
+    /** Chamado pelo gateway depois de gravar com sucesso, para permitir novas gravações. */
+    public void registrarVersaoGravada(long novaVersao) {
+        this.versao = novaVersao;
     }
 
     public UUID getId() {

@@ -27,10 +27,11 @@ final class ExecucaoItemMapper {
         return Map.of(PK, s(PREFIXO_EXEC + osId), SK, s(SK_META));
     }
 
-    static Map<String, AttributeValue> paraItem(Execucao e) {
+    static Map<String, AttributeValue> paraItem(Execucao e, long versao) {
         Map<String, AttributeValue> item = new HashMap<>(chave(e.getOsId()));
         item.put(GSI1_PK, s(chaveEtapa(e.getEtapa())));
         item.put(GSI1_SK, s(e.getCriadaEm().toString()));
+        item.put(VERSAO, AttributeValue.fromN(String.valueOf(versao)));
         item.put(ID, s(e.getId().toString()));
         item.put(OS_ID, s(e.getOsId().toString()));
         item.put(SAGA_ID, s(e.getSagaId().toString()));
@@ -77,7 +78,8 @@ final class ExecucaoItemMapper {
                 texto(item, MOTIVO_REJEICAO),
                 historico,
                 Instant.parse(item.get(CRIADA_EM).s()),
-                Instant.parse(item.get(ATUALIZADA_EM).s()));
+                Instant.parse(item.get(ATUALIZADA_EM).s()),
+                item.containsKey(VERSAO) ? Long.parseLong(item.get(VERSAO).n()) : 0L);
     }
 
     private static String texto(Map<String, AttributeValue> item, String nome) {

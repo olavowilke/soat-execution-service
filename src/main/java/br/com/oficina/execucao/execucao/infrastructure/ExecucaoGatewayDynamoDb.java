@@ -2,6 +2,7 @@ package br.com.oficina.execucao.execucao.infrastructure;
 
 import br.com.oficina.execucao.execucao.entities.EtapaExecucao;
 import br.com.oficina.execucao.execucao.entities.Execucao;
+import br.com.oficina.execucao.execucao.gateways.ExecucaoAlteradaConcorrentementeException;
 import br.com.oficina.execucao.execucao.gateways.ExecucaoGateway;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -40,7 +41,7 @@ public class ExecucaoGatewayDynamoDb implements ExecucaoGateway {
     public boolean salvarNova(Execucao execucao) {
         try {
             dynamo.putItem(b -> b.tableName(tabela)
-                    .item(ExecucaoItemMapper.paraItem(execucao))
+                    .item(ExecucaoItemMapper.paraItem(execucao, execucao.getVersao()))
                     .conditionExpression("attribute_not_exists(" + PK + ")"));
             return true;
         } catch (ConditionalCheckFailedException e) {
@@ -50,7 +51,16 @@ public class ExecucaoGatewayDynamoDb implements ExecucaoGateway {
 
     @Override
     public void atualizar(Execucao execucao) {
-        dynamo.putItem(b -> b.tableName(tabela).item(ExecucaoItemMapper.paraItem(execucao)));
+        long lida = execucao.getVersao();
+        try {
+            dynamo.putItem(b -> b.tableName(tabela)
+                    .item(ExecucaoItemMapper.paraItem(execucao, lida + 1))
+                    .conditionExpression("attribute_exists(" + PK + ") AND " + VERSAO + " = :lida")
+                    .expressionAttributeValues(Map.of(":lida", AttributeValue.fromN(String.valueOf(lida)))));
+        } catch (ConditionalCheckFailedException e) {
+            throw new ExecucaoAlteradaConcorrentementeException(execucao.getOsId(), e);
+        }
+        execucao.registrarVersaoGravada(lida + 1);
     }
 
     @Override
