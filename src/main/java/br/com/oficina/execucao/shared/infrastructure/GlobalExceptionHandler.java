@@ -1,5 +1,8 @@
 package br.com.oficina.execucao.shared.infrastructure;
 
+import br.com.oficina.execucao.execucao.entities.TransicaoEtapaInvalidaException;
+import br.com.oficina.execucao.execucao.gateways.ExecucaoAlteradaConcorrentementeException;
+import br.com.oficina.execucao.execucao.usecases.ExecucaoNaoEncontradaException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.TypeMismatchException;
@@ -66,6 +69,18 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         }
         return ResponseEntity.status(status).headers(headers)
                 .body(ApiError.of(status.value(), erro, mensagem));
+    }
+
+    @ExceptionHandler(ExecucaoNaoEncontradaException.class)
+    public ResponseEntity<ApiError> handleNaoEncontrada(ExecucaoNaoEncontradaException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ApiError.of(404, "Not Found", ex.getMessage()));
+    }
+
+    @ExceptionHandler({TransicaoEtapaInvalidaException.class, ExecucaoAlteradaConcorrentementeException.class})
+    public ResponseEntity<ApiError> handleConflito(RuntimeException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiError.of(409, "Conflict", ex.getMessage()));
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
