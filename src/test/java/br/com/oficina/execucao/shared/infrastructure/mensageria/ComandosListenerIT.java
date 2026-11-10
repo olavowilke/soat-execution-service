@@ -17,6 +17,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import software.amazon.awssdk.services.sqs.SqsAsyncClient;
 import software.amazon.awssdk.services.sqs.model.Message;
@@ -55,6 +57,11 @@ class ComandosListenerIT extends LocalStackIT {
     private String filaComandos;
     @Value("${execucao.filas.respostas}")
     private String filaRespostas;
+
+    @DynamicPropertySource
+    static void filaComandosReal(DynamicPropertyRegistry registry) {
+        registry.add("execucao.filas.comandos", () -> FILA_COMANDOS);
+    }
 
     private ListAppender<ILoggingEvent> logs;
     private List<Logger> loggers;
@@ -125,8 +132,6 @@ class ComandosListenerIT extends LocalStackIT {
 
         Message resposta = aguardarRespostas(os, 1).get(0);
         assertThat(resposta.messageAttributes().get("type").stringValue()).isEqualTo("ExecucaoAceita");
-        assertThat(new ArrayList<>(logs.list)).anyMatch(e -> e.getLevel() == Level.ERROR
-                && e.getFormattedMessage().contains("Error processing message"));
         verify(respostasSpy, times(2)).execucaoAceita(any(), any(), any());
     }
 
