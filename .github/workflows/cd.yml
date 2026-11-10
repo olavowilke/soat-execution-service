@@ -8,6 +8,10 @@ on:
     branches: [main]
   workflow_dispatch:
 
+concurrency:
+  group: cd-homolog
+  cancel-in-progress: false
+
 permissions:
   id-token: write # OIDC para assumir a role na AWS, sem chave estatica
   contents: read
@@ -92,22 +96,27 @@ jobs:
           CLUSTER_NAME="$(aws ssm get-parameter --name "/oficina/${AMBIENTE}/cluster/name" --query 'Parameter.Value' --output text)"
           aws eks update-kubeconfig --name "$CLUSTER_NAME" --region "$AWS_REGION"
 
-      - name: kubectl apply -k (manifestos)
-        run: kubectl apply -k k8s/overlays/${AMBIENTE}
-
-      # O Secret nunca vai para o repositorio: o CD cria a partir do Secret do GitHub.
-      - name: Criar/atualizar Secret execution-service-secrets
+      - name: Set up kustomize
         run: |
-          kubectl create secret generic execution-service-secrets \
-            --namespace execucao \
-            --from-literal=NEW_RELIC_LICENSE_KEY="${{ secrets.NEW_RELIC_LICENSE_KEY }}" \
-            --dry-run=client -o yaml | kubectl apply -f -
+          curl -sLo kustomize.tar.gz https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.5.0/kustomize_v5.5.0_linux_amd64.tar.gz
+          tar -xzf kustomize.tar.gz
+          sudo mv kustomize /usr/local/bin/kustomize
 
-      # `apply -k` grava a imagem placeholder; este passo fixa a tag imutavel.
-      - name: kubectl set image
+      # O Namespace e o Secret existem antes do Deployment: a referencia ao
+      # Secret nao e opcional e o pod nao sobe sem ele.
+      - name: Criar Namespace e Secret execution-service-secrets
+        env:
+          NEW_RELIC_LICENSE_KEY: ${{ secrets.NEW_RELIC_LICENSE_KEY }}
         run: |
-          kubectl -n execucao set image deployment/execution-service \
-            "execution-service=${{ steps.ecr.outputs.repository_url }}:sha-${{ github.sha }}"
+          kubectl apply -f k8s/base/namespace.yaml
+          kubectl create secret generic execution-service-secrets             --namespace execucao             --from-literal=NEW_RELIC_LICENSE_KEY="${NEW_RELIC_LICENSE_KEY}"             --dry-run=client -o yaml | kubectl apply -f -
+
+      # Fixa a tag imutavel antes do apply: um unico rollout, sem imagem placeholder.
+      - name: kubectl apply (manifestos com a imagem sha-<sha>)
+        working-directory: k8s/overlays/homolog
+        run: |
+          kustomize edit set image "execution-service=${{ steps.ecr.outputs.repository_url }}:sha-${{ github.sha }}"
+          kustomize build . | kubectl apply -f -
 
       - name: kubectl rollout status
         run: kubectl -n execucao rollout status deploy/execution-service --timeout=300s

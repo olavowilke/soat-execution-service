@@ -32,7 +32,7 @@ RUN apk add --no-cache curl unzip \
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
-RUN addgroup -S execucao && adduser -S execucao -G execucao
+RUN addgroup -S execucao && adduser -S -u 10001 execucao -G execucao
 
 COPY --from=builder /app/target/*.jar app.jar
 COPY --from=newrelic-agent /tmp/newrelic.jar newrelic.jar

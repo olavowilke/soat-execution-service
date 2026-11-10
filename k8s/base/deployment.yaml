@@ -7,7 +7,6 @@ metadata:
     app.kubernetes.io/name: execution-service
     app.kubernetes.io/part-of: oficina
 spec:
-  replicas: 1
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -36,6 +35,14 @@ spec:
           ports:
             - containerPort: 8080
               name: http
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
           envFrom:
             - configMapRef:
                 name: execution-service-config
