@@ -5,53 +5,13 @@ import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
-import org.springframework.core.MethodParameter;
-import org.springframework.http.HttpInputMessage;
-import org.springframework.http.converter.HttpMessageNotReadableException;
-import org.springframework.validation.BeanPropertyBindingResult;
-import org.springframework.validation.FieldError;
-import org.springframework.web.bind.MethodArgumentNotValidException;
-import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/** Handlers chamados direto. Os casos do Spring MVC ficam em {@link GlobalExceptionHandlerWebTest}. */
 class GlobalExceptionHandlerTest {
 
     private final GlobalExceptionHandler handler = new GlobalExceptionHandler();
-
-    @Test
-    void validacaoRetorna422ComOsCampos() throws Exception {
-        var resultado = new BeanPropertyBindingResult(new Object(), "corpo");
-        resultado.addError(new FieldError("corpo", "descricao", "não pode ser vazio"));
-        MethodParameter parametro = new MethodParameter(
-                GlobalExceptionHandlerTest.class.getDeclaredMethod("validacaoRetorna422ComOsCampos"), -1);
-
-        var resposta = handler.handleValidation(new MethodArgumentNotValidException(parametro, resultado));
-
-        assertThat(resposta.getStatusCode().value()).isEqualTo(422);
-        assertThat(resposta.getBody().fields())
-                .containsExactly(new ApiError.FieldError("descricao", "não pode ser vazio"));
-    }
-
-    @Test
-    void corpoIlegivelRetorna400() {
-        var excecao = new HttpMessageNotReadableException("json ruim", (HttpInputMessage) null);
-
-        var resposta = handler.handleMessageNotReadable(excecao);
-
-        assertThat(resposta.getStatusCode().value()).isEqualTo(400);
-        assertThat(resposta.getBody().message()).contains("inválido");
-    }
-
-    @Test
-    void parametroComTipoErradoRetorna400() {
-        var excecao = new MethodArgumentTypeMismatchException("abc", Integer.class, "id", null, null);
-
-        var resposta = handler.handleTypeMismatch(excecao);
-
-        assertThat(resposta.getStatusCode().value()).isEqualTo(400);
-        assertThat(resposta.getBody().message()).isEqualTo("Parâmetro inválido: id");
-    }
 
     @Test
     void argumentoIlegalRetorna400() {
