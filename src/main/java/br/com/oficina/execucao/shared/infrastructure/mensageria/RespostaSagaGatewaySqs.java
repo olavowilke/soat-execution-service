@@ -24,9 +24,11 @@ public class RespostaSagaGatewaySqs implements RespostaSagaGateway {
     private final ObjectMapper mapper;
     private final Clock clock;
     private final String fila;
+    private final TracingMensagens tracing;
 
     public RespostaSagaGatewaySqs(SqsTemplate sqs, ObjectMapper mapper, Clock clock,
-            @Value("${execucao.filas.respostas}") String fila) {
+            @Value("${execucao.filas.respostas}") String fila, TracingMensagens tracing) {
+        this.tracing = tracing;
         this.sqs = sqs;
         this.mapper = mapper;
         this.clock = clock;
@@ -54,7 +56,8 @@ public class RespostaSagaGatewaySqs implements RespostaSagaGateway {
     }
 
     private void enviar(String tipo, UUID sagaId, UUID osId, ObjectNode payload) {
-        String correlationId = MDC.get(MDC_CORRELATION_ID);
+        String doMdc = MDC.get(MDC_CORRELATION_ID);
+        String correlationId = doMdc == null || doMdc.isBlank() ? UUID.randomUUID().toString() : doMdc;
         MensagemSaga mensagem = new MensagemSaga(UUID.randomUUID(), sagaId, osId, tipo, correlationId,
                 clock.instant(), payload);
         String corpo;
@@ -63,12 +66,10 @@ public class RespostaSagaGatewaySqs implements RespostaSagaGateway {
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("Falha ao serializar " + tipo, e);
         }
-        Map<String, String> trace = TracingMensagens.cabecalhosSaida();
+        Map<String, String> trace = tracing.cabecalhosSaida();
         sqs.send(to -> {
             to.queue(fila).payload(corpo).header("type", tipo);
-            if (correlationId != null) {
-                to.header(MDC_CORRELATION_ID, correlationId);
-            }
+            to.header(MDC_CORRELATION_ID, correlationId);
             trace.forEach(to::header);
         });
     }

@@ -9,15 +9,17 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 
 class TracingMensagensTest {
 
+    private final TracingMensagens tracing = new TracingMensagens();
+
     @Test
     void semAgenteNaoGeraCabecalhoNewRelic() {
-        assertThat(TracingMensagens.cabecalhosSaida()).isEmpty();
+        assertThat(tracing.cabecalhosSaida()).isEmpty();
     }
 
     @Test
     void semAgenteAceitarNaoFalha() {
-        assertThatCode(() -> TracingMensagens.aceitar(Map.of("newrelic", "abc"))).doesNotThrowAnyException();
-        assertThatCode(() -> TracingMensagens.aceitar(Map.of())).doesNotThrowAnyException();
-        assertThatCode(() -> TracingMensagens.aceitar(null)).doesNotThrowAnyException();
+        assertThatCode(() -> tracing.aceitar(Map.of("newrelic", "abc"))).doesNotThrowAnyException();
+        assertThatCode(() -> tracing.aceitar(Map.of())).doesNotThrowAnyException();
+        assertThatCode(() -> tracing.aceitar(null)).doesNotThrowAnyException();
     }
 }

@@ -16,6 +16,7 @@ import org.springframework.stereotype.Component;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * Consome os comandos da Saga. Modo de ack ON_SUCCESS: qualquer excecao deixa a
@@ -30,8 +31,11 @@ public class ComandosListener {
 
     private final ObjectMapper mapper;
     private final IniciarExecucaoUseCase iniciarExecucao;
+    private final TracingMensagens tracing;
 
-    public ComandosListener(ObjectMapper mapper, IniciarExecucaoUseCase iniciarExecucao) {
+    public ComandosListener(ObjectMapper mapper, IniciarExecucaoUseCase iniciarExecucao,
+            TracingMensagens tracing) {
+        this.tracing = tracing;
         this.mapper = mapper;
         this.iniciarExecucao = iniciarExecucao;
     }
@@ -42,10 +46,11 @@ public class ComandosListener {
             @Header(name = TracingMensagens.ATRIBUTO_NEWRELIC, required = false) String newrelic) {
         MensagemSaga mensagem = ler(corpo);
         try {
-            MDC.put("correlationId", mensagem.correlationId() == null ? "" : mensagem.correlationId());
+            boolean semCorrelationId = mensagem.correlationId() == null || mensagem.correlationId().isBlank();
+            MDC.put("correlationId", semCorrelationId ? UUID.randomUUID().toString() : mensagem.correlationId());
             MDC.put("sagaId", String.valueOf(mensagem.sagaId()));
             if (newrelic != null) {
-                TracingMensagens.aceitar(Map.of(TracingMensagens.ATRIBUTO_NEWRELIC, newrelic));
+                tracing.aceitar(Map.of(TracingMensagens.ATRIBUTO_NEWRELIC, newrelic));
             }
             if (!TIPO_INICIAR_EXECUCAO.equals(mensagem.type())) {
                 log.error("Tipo de mensagem desconhecido {}, messageId={}", mensagem.type(), mensagem.messageId());
@@ -61,14 +66,21 @@ public class ComandosListener {
     private MensagemSaga ler(String corpo) {
         try {
             MensagemSaga mensagem = mapper.readValue(corpo, MensagemSaga.class);
+            if (mensagem.payload() == null || mensagem.payload().isNull()) {
+                throw new IllegalArgumentException("Envelope sem payload");
+            }
             if (mensagem.sagaId() == null || mensagem.osId() == null || mensagem.type() == null) {
                 throw new IllegalArgumentException("Envelope sem sagaId, osId ou type");
             }
             return mensagem;
         } catch (Exception e) {
-            log.error("Mensagem invalida, nao confirmada: {}", e.getMessage());
+            log.error("Mensagem invalida, nao confirmada: {} corpo={}", e.getMessage(), resumo(corpo));
             throw new IllegalArgumentException("Mensagem invalida", e);
         }
+    }
+
+    private static String resumo(String corpo) {
+        return corpo == null ? null : corpo.substring(0, Math.min(corpo.length(), 200));
     }
 
     private IniciarExecucaoCommand paraComando(MensagemSaga mensagem) {
