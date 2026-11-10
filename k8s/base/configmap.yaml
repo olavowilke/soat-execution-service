@@ -12,6 +12,7 @@ data:
   # Nomes das filas (nao URLs): o Spring Cloud AWS resolve o nome em URL.
   EXECUCAO_DYNAMODB_TABELA: "oficina-homolog-execucoes"
   EXECUCAO_FILAS_COMANDOS: "oficina-homolog-execution-commands"
+  EXECUCAO_FILAS_COMANDOS_DLQ: "oficina-homolog-execution-commands-dlq"
   EXECUCAO_FILAS_RESPOSTAS: "oficina-homolog-os-saga-replies"
   EXECUCAO_CAPACIDADE_MAXIMA: "20"
   # appName usado pelo New Relic; o painel e os alertas filtram por este nome.
