@@ -45,6 +45,8 @@ Não existe `GET` para a flag de falha simulada.
 
 ### Swagger
 
+As rotas de equipe não passam pelo gateway. O botão "Try it out" só funciona nelas por port-forward.
+
 Pelo API Gateway:
 
 ```
@@ -99,6 +101,7 @@ Nenhum outro serviço acessa esta tabela.
 Pré-requisitos: Java 21, Docker, AWS CLI e o `./mvnw` do repositório.
 
 ```bash
+export AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test   # chaves falsas do LocalStack
 docker compose up -d          # LocalStack com SQS e DynamoDB
 
 # Cria a tabela (o LocalStack começa vazio)
@@ -109,12 +112,11 @@ aws --endpoint-url http://localhost:4566 --region us-east-1 dynamodb create-tabl
   --key-schema AttributeName=pk,KeyType=HASH AttributeName=sk,KeyType=RANGE \
   --global-secondary-indexes 'IndexName=gsi-etapa,KeySchema=[{AttributeName=gsi1pk,KeyType=HASH},{AttributeName=gsi1sk,KeyType=RANGE}],Projection={ProjectionType=ALL}'
 
-export SPRING_CLOUD_AWS_ENDPOINT=http://localhost:4566
-export AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test
-./mvnw -s settings.xml spring-boot:run
+SPRING_CLOUD_AWS_ENDPOINT=http://localhost:4566 ./mvnw -s settings.xml spring-boot:run
 ```
 
-A aplicação sobe em `http://localhost:8080/api/execucao`. O listener cria a fila de comandos vazia no LocalStack.
+A aplicação sobe em `http://localhost:8080/api/execucao`.
+O listener cria a fila de comandos vazia no LocalStack.
 A DLQ não nasce sozinha. O job de métricas avisa no log e segue.
 
 | Variável | Padrão | Para quê |
@@ -140,14 +142,16 @@ Na AWS, o pod usa o EKS Pod Identity. Nenhuma chave estática existe.
 - Relatório JaCoCo local: `target/site/jacoco/index.html`, depois de `./mvnw verify`.
 - Cobertura no Sonar: [![Cobertura](https://sonarcloud.io/api/project_badges/measure?project=olavowilke_soat-execution-service&metric=coverage)](https://sonarcloud.io/project/overview?id=olavowilke_soat-execution-service)
 
-A captura do relatório JaCoCo entra aqui depois do primeiro `verify` limpo.
+Última medição (`./mvnw verify` no HEAD da branch `feat/fase4-metricas`): **98% das linhas (469 de 479) e 97% das instruções**.
+
+![Relatório JaCoCo](docs/cobertura/jacoco.png)
 
 ## Deploy
 
 O fluxo vive em `.github/workflows/`.
 
 1. **CI** (PR e push em `main`). Jobs: `build-and-test` (`mvn verify` e Sonar), `owasp`, `Terraform fmt e validate` e `Validar manifestos Kubernetes (kustomize)`.
-2. **Branch protegida.** `main` exige PR e os checks do CI.
+2. **Branch protegida.** `main` exige PR e o check `build-and-test`. Os jobs `owasp`, `Terraform fmt e validate` e `Validar manifestos Kubernetes (kustomize)` são informativos.
 3. **CD** (push em `main`). Só roda se a variável `DEPLOY_HOMOLOG` for `true`.
    - Job `terraform`: cria fila e DLQ, tabela DynamoDB, ECR, role do pod, listener do NLB (porta 8082) e rotas do gateway.
    - Job `build-and-deploy`: cria o Secret `execution-service-secrets`, envia a imagem `sha-<git sha>` ao ECR, aplica `k8s/overlays/homolog`, espera o rollout e chama `/api/execucao/actuator/health` pelo gateway.
