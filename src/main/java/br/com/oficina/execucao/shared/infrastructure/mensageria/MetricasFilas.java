@@ -22,7 +22,8 @@ import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Lê a cada 60 s o tamanho da DLQ deste serviço e expõe
- * {@code oficina_fila_dlq_mensagens{fila}}. Cada chamada ao SQS tem prazo (o agendador é compartilhado com a outbox).
+ * {@code oficina_fila_dlq_mensagens{fila}}. Cada chamada ao SQS tem prazo,
+ * porque o agendador é compartilhado com as outras tarefas agendadas do serviço.
  * Se a leitura falha ou estoura o prazo, mantém o último valor
  * e escreve um WARN por sequência de falhas.
  */
