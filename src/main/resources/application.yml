@@ -45,6 +45,7 @@ execucao:
     tabela: ${EXECUCAO_DYNAMODB_TABELA:oficina-homolog-execucoes}
   filas:
     comandos: ${EXECUCAO_FILAS_COMANDOS:oficina-homolog-execution-commands}
+    comandos-dlq: ${EXECUCAO_FILAS_COMANDOS_DLQ:oficina-homolog-execution-commands-dlq}
     respostas: ${EXECUCAO_FILAS_RESPOSTAS:oficina-homolog-os-saga-replies}
   capacidade-maxima: ${EXECUCAO_CAPACIDADE_MAXIMA:20}
 
