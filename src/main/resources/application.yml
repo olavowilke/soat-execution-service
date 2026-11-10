@@ -1,0 +1,53 @@
+spring:
+  application:
+    name: execution-service
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+  cloud:
+    aws:
+      region:
+        static: ${AWS_REGION:us-east-1}
+      # Credenciais: EKS Pod Identity (cadeia padrão do SDK). Nada a mapear aqui.
+
+server:
+  port: ${SERVER_PORT:8080}
+  servlet:
+    context-path: /api/execucao
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+  health:
+    liveness-state:
+      enabled: true
+    readiness-state:
+      enabled: true
+  metrics:
+    tags:
+      application: execution-service
+
+execucao:
+  dynamodb:
+    tabela: ${EXECUCAO_DYNAMODB_TABELA:oficina-homolog-execucoes}
+  filas:
+    comandos: ${EXECUCAO_FILAS_COMANDOS:oficina-homolog-execution-commands}
+    respostas: ${EXECUCAO_FILAS_RESPOSTAS:oficina-homolog-os-saga-replies}
+  capacidade-maxima: ${EXECUCAO_CAPACIDADE_MAXIMA:20}
+
+logging:
+  level:
+    br.com.oficina.execucao: INFO

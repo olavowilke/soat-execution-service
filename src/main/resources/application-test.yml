@@ -1,0 +1,8 @@
+# Perfil de teste: os testes de integração apontam o AWS SDK para o LocalStack
+# via @DynamicPropertySource (ver LocalStackIT).
+spring:
+  cloud:
+    aws:
+      credentials:
+        access-key: test
+        secret-key: test
