@@ -64,6 +64,8 @@ class ComandosListenerIT extends LocalStackIT {
     @DynamicPropertySource
     static void filaComandosReal(DynamicPropertyRegistry registry) {
         registry.add("execucao.filas.comandos", () -> FILA_COMANDOS);
+        // Outros ITs deixam execucoes ativas na tabela compartilhada.
+        registry.add("execucao.capacidade-maxima", () -> 10_000);
     }
 
     private ListAppender<ILoggingEvent> logs;
