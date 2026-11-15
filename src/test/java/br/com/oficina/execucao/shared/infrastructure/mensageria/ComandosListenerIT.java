@@ -2,6 +2,7 @@ package br.com.oficina.execucao.shared.infrastructure.mensageria;
 
 import br.com.oficina.execucao.execucao.gateways.ExecucaoGateway;
 import br.com.oficina.execucao.execucao.gateways.RespostaSagaGateway;
+import br.com.oficina.execucao.execucao.gateways.SimulacaoFalhaGateway;
 import br.com.oficina.execucao.shared.LocalStackIT;
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
@@ -49,6 +50,8 @@ class ComandosListenerIT extends LocalStackIT {
     private ObjectMapper mapper;
     @Autowired
     private ExecucaoGateway execucoes;
+    @Autowired
+    private SimulacaoFalhaGateway simulacaoFalha;
     @MockitoSpyBean
     private RespostaSagaGateway respostasSpy;
     @MockitoSpyBean
@@ -65,6 +68,12 @@ class ComandosListenerIT extends LocalStackIT {
 
     private ListAppender<ILoggingEvent> logs;
     private List<Logger> loggers;
+
+    @BeforeEach
+    void desligarSimulacaoDeFalha() {
+        // Outro IT pode deixar a flag ligada no DynamoDB compartilhado.
+        simulacaoFalha.definir(false);
+    }
 
     @BeforeEach
     void capturarLogs() {
