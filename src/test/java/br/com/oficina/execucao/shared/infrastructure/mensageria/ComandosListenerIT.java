@@ -72,13 +72,9 @@ class ComandosListenerIT extends LocalStackIT {
     private List<Logger> loggers;
 
     @BeforeEach
-    void desligarSimulacaoDeFalha() {
+    void preparar() {
         // Outro IT pode deixar a flag ligada no DynamoDB compartilhado.
         simulacaoFalha.definir(false);
-    }
-
-    @BeforeEach
-    void capturarLogs() {
         loggers = List.of((Logger) LoggerFactory.getLogger(ComandosListener.class),
                 (Logger) LoggerFactory.getLogger(
                         "io.awspring.cloud.sqs.listener.sink.AbstractMessageProcessingPipelineSink"));
