@@ -2,6 +2,7 @@ package br.com.oficina.execucao.shared.infrastructure.mensageria;
 
 import br.com.oficina.execucao.execucao.gateways.ExecucaoGateway;
 import br.com.oficina.execucao.execucao.gateways.RespostaSagaGateway;
+import br.com.oficina.execucao.execucao.gateways.SimulacaoFalhaGateway;
 import br.com.oficina.execucao.shared.LocalStackIT;
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
@@ -49,6 +50,8 @@ class ComandosListenerIT extends LocalStackIT {
     private ObjectMapper mapper;
     @Autowired
     private ExecucaoGateway execucoes;
+    @Autowired
+    private SimulacaoFalhaGateway simulacaoFalha;
     @MockitoSpyBean
     private RespostaSagaGateway respostasSpy;
     @MockitoSpyBean
@@ -61,13 +64,17 @@ class ComandosListenerIT extends LocalStackIT {
     @DynamicPropertySource
     static void filaComandosReal(DynamicPropertyRegistry registry) {
         registry.add("execucao.filas.comandos", () -> FILA_COMANDOS);
+        // Outros ITs deixam execucoes ativas na tabela compartilhada.
+        registry.add("execucao.capacidade-maxima", () -> 10_000);
     }
 
     private ListAppender<ILoggingEvent> logs;
     private List<Logger> loggers;
 
     @BeforeEach
-    void capturarLogs() {
+    void preparar() {
+        // Outro IT pode deixar a flag ligada no DynamoDB compartilhado.
+        simulacaoFalha.definir(false);
         loggers = List.of((Logger) LoggerFactory.getLogger(ComandosListener.class),
                 (Logger) LoggerFactory.getLogger(
                         "io.awspring.cloud.sqs.listener.sink.AbstractMessageProcessingPipelineSink"));
